@@ -1,16 +1,17 @@
-// Read Excel file and process data
-function processExcel(file) {
-    const reader = new FileReader();
-    reader.onload = function(event) {
-        const data = new Uint8Array(event.target.result);
-        const workbook = XLSX.read(data, {type: 'array'});
+// URL to the Excel file
+const excelUrl = 'C:/Users/user/Downloads/projects/dashboard-d3/1900_2021_DISASTERS.xlsx ';  // Replace with the actual path to your Excel file
+
+// Fetch and process the Excel file
+fetch(excelUrl)
+    .then(response => response.arrayBuffer())
+    .then(data => {
+        const workbook = XLSX.read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
 
         processData(worksheet);
-    };
-    reader.readAsArrayBuffer(file);
-}
+    })
+    .catch(error => console.error('Error fetching the Excel file:', error));
 
 // Process data to create a butterfly chart
 function processData(data) {
@@ -106,15 +107,3 @@ function createButterflyChart(data) {
         .attr("transform", `translate(0,${height})`)
         .call(d3.axisBottom(x0));
 }
-
-// Example of loading the file (you can replace this with actual file input handling)
-const fileInput = document.createElement('input');
-fileInput.type = 'file';
-fileInput.accept = '.xlsx';
-fileInput.addEventListener('change', (event) => {
-    const file = event.target.files[0];
-    if (file) {
-        processExcel(file);
-    }
-});
-document.body.appendChild(fileInput);
