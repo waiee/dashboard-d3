@@ -20,7 +20,7 @@ function processData(data) {
     const regions = [...new Set(data.map(d => d.Region))];
     populateRegionFilter(regions);
 
-    const regionSelect = document.getElementById('Region');
+    const regionSelect = document.getElementById('region');
     regionSelect.addEventListener('change', () => {
         const selectedRegion = regionSelect.value;
         const filteredData = data.filter(d => d.Region === selectedRegion);
@@ -36,7 +36,7 @@ function processData(data) {
 
 // Populate region filter dropdown
 function populateRegionFilter(regions) {
-    const regionSelect = document.getElementById('Region');
+    const regionSelect = document.getElementById('region');
     regions.forEach(region => {
         const option = document.createElement('option');
         option.value = region;
@@ -69,7 +69,7 @@ function createButterflyChart(data) {
 
     const x1 = d3.scaleLinear()
         .rangeRound([0, x0.bandwidth() / 2])
-        .domain([0, d3.max(data, d => d.TotalAffected)]);
+        .domain([0, d3.max(data, d => d['Total Affected'])]);
 
     const x2 = d3.scaleLinear()
         .rangeRound([0, x0.bandwidth() / 2])
@@ -94,8 +94,8 @@ function createButterflyChart(data) {
         .attr("class", "bar-left")
         .attr("y", d => y(d.Country))
         .attr("height", y.bandwidth())
-        .attr("x", d => x0(d.Country) - x1(d.TotalAffected))
-        .attr("width", d => x1(d.TotalAffected));
+        .attr("x", d => x0(d.Country) - x1(d['Total Affected']))
+        .attr("width", d => x1(d['Total Affected']));
 
     g.selectAll(".bar-right")
         .data(data)
