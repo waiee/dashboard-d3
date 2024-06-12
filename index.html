@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!-- <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -10,7 +10,6 @@
     <div>
         <label for="region">Select Region:</label>
         <select id="region">
-            <!-- Regions will be populated dynamically -->
         </select>
     </div>
     <div id="chart"></div>
@@ -18,4 +17,36 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
     <script src="script.js"></script>
 </body>
+</html> -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Butterfly Chart</title>
+    <style>
+        body {
+            font-family: sans-serif;
+        }
+        .chart {
+            width: 900px;
+            height: 500px;
+            margin: 0 auto;
+        }
+        .axis--x, .axis--y {
+            font-size: 10px;
+        }
+        .text--label {
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Butterfly Chart</h1>
+    <div class="chart"></div>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="script.js"></script>
+</body>
 </html>
+
