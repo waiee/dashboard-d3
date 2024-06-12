@@ -1,5 +1,5 @@
 // URL to the Excel file
-const excelUrl = 'C:/Users/user/Downloads/projects/dashboard-d3/1900_2021_DISASTERS.xlsx ';  // Replace with the actual path to your Excel file
+const excelUrl = 'C:/Users/user/Downloads/projects/dashboard-d3/1900_2021_DISASTERS.xlsx ';
 
 // Fetch and process the Excel file
 fetch(excelUrl)
@@ -8,6 +8,8 @@ fetch(excelUrl)
         const workbook = XLSX.read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+        console.log('Worksheet data:', worksheet);  // Debug: log the loaded data
 
         processData(worksheet);
     })
@@ -18,20 +20,23 @@ function processData(data) {
     const regions = [...new Set(data.map(d => d.Region))];
     populateRegionFilter(regions);
 
-    const regionSelect = document.getElementById('region');
+    const regionSelect = document.getElementById('Region');
     regionSelect.addEventListener('change', () => {
         const selectedRegion = regionSelect.value;
         const filteredData = data.filter(d => d.Region === selectedRegion);
+        console.log('Filtered data for region:', filteredData);  // Debug: log the filtered data
         createButterflyChart(filteredData);
     });
 
     // Initial chart creation with the first region
-    createButterflyChart(data.filter(d => d.Region === regions[0]));
+    if (regions.length > 0) {
+        createButterflyChart(data.filter(d => d.Region === regions[0]));
+    }
 }
 
 // Populate region filter dropdown
 function populateRegionFilter(regions) {
-    const regionSelect = document.getElementById('region');
+    const regionSelect = document.getElementById('Region');
     regions.forEach(region => {
         const option = document.createElement('option');
         option.value = region;
