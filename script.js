@@ -1,5 +1,5 @@
 // URL to the Excel file
-const excelUrl = 'C:/Users/user/Downloads/projects/dashboard-d3/1900_2021_DISASTERS.xlsx ';
+const excelUrl = 'C:/Users/user/Downloads/projects/dashboard-d3/dataset/1900_2021_DISASTERS.xlsx ';
 
 // Fetch and process the Excel file
 fetch(excelUrl)
