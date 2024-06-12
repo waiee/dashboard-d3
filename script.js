@@ -1,68 +1,120 @@
-const data = [
-    { category: "A", value1: 20, value2: 30 },
-    { category: "B", value1: 40, value2: 25 },
-    { category: "C", value1: 35, value2: 40 },
-    { category: "D", value1: 50, value2: 20 },
-    { category: "E", value1: 30, value2: 35 }
-];
+// Read Excel file and process data
+function processExcel(file) {
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        const data = new Uint8Array(event.target.result);
+        const workbook = XLSX.read(data, {type: 'array'});
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
 
-const margin = { top: 20, right: 30, bottom: 40, left: 40 },
-      width = 900 - margin.left - margin.right,
-      height = 500 - margin.top - margin.bottom;
+        processData(worksheet);
+    };
+    reader.readAsArrayBuffer(file);
+}
 
-const svg = d3.select("#chart")
-    .append("svg")
-    .attr("width", width + margin.left + margin.right)
-    .attr("height", height + margin.top + margin.bottom)
-    .append("g")
-    .attr("transform", `translate(${margin.left},${margin.top})`);
+// Process data to create a butterfly chart
+function processData(data) {
+    const regions = [...new Set(data.map(d => d.Region))];
+    populateRegionFilter(regions);
 
-const x0 = d3.scaleBand()
-    .rangeRound([0, width])
-    .paddingInner(0.1)
-    .domain(data.map(d => d.category));
+    const regionSelect = document.getElementById('region');
+    regionSelect.addEventListener('change', () => {
+        const selectedRegion = regionSelect.value;
+        const filteredData = data.filter(d => d.Region === selectedRegion);
+        createButterflyChart(filteredData);
+    });
 
-const x1 = d3.scaleLinear()
-    .rangeRound([0, x0.bandwidth() / 2])
-    .domain([0, d3.max(data, d => Math.max(d.value1, d.value2))]);
+    // Initial chart creation with the first region
+    createButterflyChart(data.filter(d => d.Region === regions[0]));
+}
 
-const x2 = d3.scaleLinear()
-    .rangeRound([0, x0.bandwidth() / 2])
-    .domain([0, d3.max(data, d => Math.max(d.value1, d.value2))]);
+// Populate region filter dropdown
+function populateRegionFilter(regions) {
+    const regionSelect = document.getElementById('region');
+    regions.forEach(region => {
+        const option = document.createElement('option');
+        option.value = region;
+        option.text = region;
+        regionSelect.appendChild(option);
+    });
+}
 
-const y = d3.scaleBand()
-    .rangeRound([height, 0])
-    .padding(0.1)
-    .domain(data.map(d => d.category));
+// Create butterfly chart
+function createButterflyChart(data) {
+    const margin = { top: 20, right: 30, bottom: 40, left: 40 },
+          width = 900 - margin.left - margin.right,
+          height = 500 - margin.top - margin.bottom;
 
-const g = svg.append("g")
-    .attr("transform", `translate(${margin.left},${margin.top})`);
+    d3.select("#chart").selectAll("*").remove();
 
-g.append("g")
-    .attr("class", "axis axis--y")
-    .call(d3.axisLeft(y));
+    const svg = d3.select("#chart")
+        .append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+        .append("g")
+        .attr("transform", `translate(${margin.left},${margin.top})`);
 
-g.selectAll(".bar-left")
-    .data(data)
-    .enter()
-    .append("rect")
-    .attr("class", "bar-left")
-    .attr("y", d => y(d.category))
-    .attr("height", y.bandwidth())
-    .attr("x", d => x0(d.category) - x1(d.value1))
-    .attr("width", d => x1(d.value1));
+    const countries = [...new Set(data.map(d => d.Country))];
 
-g.selectAll(".bar-right")
-    .data(data)
-    .enter()
-    .append("rect")
-    .attr("class", "bar-right")
-    .attr("y", d => y(d.category))
-    .attr("height", y.bandwidth())
-    .attr("x", d => x0(d.category) + x0.bandwidth() / 2)
-    .attr("width", d => x2(d.value2));
+    const x0 = d3.scaleBand()
+        .rangeRound([0, width])
+        .paddingInner(0.1)
+        .domain(countries);
 
-g.append("g")
-    .attr("class", "axis axis--x")
-    .attr("transform", `translate(0,${height})`)
-    .call(d3.axisBottom(x0));
+    const x1 = d3.scaleLinear()
+        .rangeRound([0, x0.bandwidth() / 2])
+        .domain([0, d3.max(data, d => d.TotalAffected)]);
+
+    const x2 = d3.scaleLinear()
+        .rangeRound([0, x0.bandwidth() / 2])
+        .domain([0, d3.max(data, d => d.CPI)]);
+
+    const y = d3.scaleBand()
+        .rangeRound([height, 0])
+        .padding(0.1)
+        .domain(countries);
+
+    const g = svg.append("g")
+        .attr("transform", `translate(${margin.left},${margin.top})`);
+
+    g.append("g")
+        .attr("class", "axis axis--y")
+        .call(d3.axisLeft(y));
+
+    g.selectAll(".bar-left")
+        .data(data)
+        .enter()
+        .append("rect")
+        .attr("class", "bar-left")
+        .attr("y", d => y(d.Country))
+        .attr("height", y.bandwidth())
+        .attr("x", d => x0(d.Country) - x1(d.TotalAffected))
+        .attr("width", d => x1(d.TotalAffected));
+
+    g.selectAll(".bar-right")
+        .data(data)
+        .enter()
+        .append("rect")
+        .attr("class", "bar-right")
+        .attr("y", d => y(d.Country))
+        .attr("height", y.bandwidth())
+        .attr("x", d => x0(d.Country) + x0.bandwidth() / 2)
+        .attr("width", d => x2(d.CPI));
+
+    g.append("g")
+        .attr("class", "axis axis--x")
+        .attr("transform", `translate(0,${height})`)
+        .call(d3.axisBottom(x0));
+}
+
+// Example of loading the file (you can replace this with actual file input handling)
+const fileInput = document.createElement('input');
+fileInput.type = 'file';
+fileInput.accept = '.xlsx';
+fileInput.addEventListener('change', (event) => {
+    const file = event.target.files[0];
+    if (file) {
+        processExcel(file);
+    }
+});
+document.body.appendChild(fileInput);
