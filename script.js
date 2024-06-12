@@ -3,7 +3,12 @@ const excelUrl = 'C:/Users/user/Downloads/projects/dashboard-d3/dataset/1900_202
 
 // Fetch and process the Excel file
 fetch(excelUrl)
-    .then(response => response.arrayBuffer())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.arrayBuffer();
+    })
     .then(data => {
         const workbook = XLSX.read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
@@ -14,6 +19,7 @@ fetch(excelUrl)
         processData(worksheet);
     })
     .catch(error => console.error('Error fetching the Excel file:', error));
+
 
 // Process data to create a butterfly chart
 function processData(data) {
