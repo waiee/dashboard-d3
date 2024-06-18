@@ -10,7 +10,7 @@
             margin: 20px;
         }
         .chart-container {
-            width: 800px;
+            width: 900px; /* Adjusted width for better layout */
             margin: 20px auto;
         }
         .bar {
@@ -39,7 +39,7 @@
 </head>
 <body>
     <div class="chart-container">
-        <h2>Butterfly Chart: Total Affected and Average CPI by Region</h2>
+        <h2 style="margin-left: 100px;">Butterfly Chart: Total Affected and Average CPI by Region</h2> <!-- Adjusted margin-left -->
         <svg id="chart"></svg>
     </div>
 
@@ -49,21 +49,21 @@
         d3.csv("cleaned_data.csv").then(function(data) {
             // Convert numeric values from strings to numbers
             data.forEach(function(d) {
-                d.total_affected = +d.total_affected; // Ensure numeric conversion
-                d.cpi = +d.cpi; // Ensure numeric conversion
+                d["Total Affected"] = +d["Total Affected"];
+                d["CPI"] = +d["CPI"];
             });
 
             // Log the data for debugging
-            console.log("Raw Data:", data);
+            console.log("Data:", data);
 
             // Aggregate data by region
             const aggregatedData = d3.rollups(
                 data,
                 v => ({
-                    total_affected: d3.sum(v, d => d.total_affected),
-                    avg_cpi: d3.mean(v, d => d.cpi)
+                    total_affected: d3.sum(v, d => d["Total Affected"]),
+                    avg_cpi: d3.mean(v, d => d["CPI"])
                 }),
-                d => d.region
+                d => d.Region
             ).map(([region, values]) => ({
                 region,
                 total_affected: values.total_affected,
@@ -73,8 +73,8 @@
             // Log the aggregated data for debugging
             console.log("Aggregated Data:", aggregatedData);
 
-            const margin = { top: 20, right: 30, bottom: 60, left: 60 };
-            const width = 800 - margin.left - margin.right;
+            const margin = { top: 20, right: 30, bottom: 60, left: 120 }; // Adjusted left margin for Y-axis label
+            const width = 800 - margin.left - margin.right; // Adjusted width
             const height = 400 - margin.top - margin.bottom;
 
             // Create SVG element
@@ -185,7 +185,7 @@
             svg.append("text")
                 .attr("transform", "rotate(-90)")
                 .attr("x", 0 - (height / 2))
-                .attr("y", 0 - margin.left + 20)
+                .attr("y", 0 - margin.left + 40) // Adjusted to move further left
                 .attr("dy", "1em")
                 .style("text-anchor", "middle")
                 .text("Region");
@@ -196,3 +196,8 @@
     </script>
 </body>
 </html>
+
+
+
+
+
