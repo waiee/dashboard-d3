@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>D3.js Side-by-Side Bar Charts</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .chart-container {
+            width: 800px;
+            margin: 20px auto;
+        }
+        .bar {
+            fill: steelblue;
+        }
+        .bar:hover {
+            fill: orange;
+        }
+        .axis text {
+            font-size: 12px;
+        }
+        .axis .domain {
+            display: none;
+        }
+        .tooltip {
+            position: absolute;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 8px;
+            border-radius: 5px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+    </style>
+</head>
+<body>
+    <div class="chart-container">
+        <h2>Relationship between Total Affected and CPI by Region (Side-by-Side Bar Charts)</h2>
+        <svg id="chart"></svg>
+    </div>
+
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script>
+        // D3.js code goes here
+        d3.csv("cleaned_data.csv").then(function(data) {
+            // Convert numeric values from strings to numbers
+            data.forEach(function(d) {
+                d.total_affected = +d.total_affected;
+                d.cpi = +d.cpi;
+            });
+
+            // Extract unique regions
+            const regions = [...new Set(data.map(d => d.region))];
+            const margin = { top: 20, right: 30, bottom: 60, left: 60 };
+            const width = 800 - margin.left - margin.right;
+            const height = 400 - margin.top - margin.bottom;
+
+            // Create SVG element
+            const svg = d3.select("#chart")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // Define scales
+            const x0 = d3.scaleBand()
+                .domain(regions)
+                .rangeRound([0, width])
+                .paddingInner(0.1);
+
+            const x1 = d3.scaleBand()
+                .domain(['total_affected', 'cpi'])
+                .rangeRound([0, x0.bandwidth()])
+                .padding(0.05);
+
+            const y = d3.scaleLinear()
+                .domain([0, d3.max(data, d => Math.max(d.total_affected, d.cpi))])
+                .nice()
+                .range([height, 0]);
+
+            // Define tooltip
+            const tooltip = d3.select("body")
+                .append("div")
+                .attr("class", "tooltip");
+
+            // Draw bars
+            svg.append("g")
+                .selectAll("g")
+                .data(data)
+                .join("g")
+                .attr("transform", d => `translate(${x0(d.region)},0)`)
+                .selectAll("rect")
+                .data(d => ['total_affected', 'cpi'].map(key => ({key, value: d[key]})))
+                .join("rect")
+                .attr("x", d => x1(d.key))
+                .attr("y", d => y(d.value))
+                .attr("width", x1.bandwidth())
+                .attr("height", d => height - y(d.value))
+                .attr("fill", d => d.key === 'total_affected' ? "#1f77b4" : "#ff7f0e")
+                .on("mouseover", (event, d) => {
+                    tooltip.style("opacity", 1)
+                        .html(`<strong>${d.key}</strong><br>${d.value}`)
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 15) + "px");
+                })
+                .on("mouseout", () => {
+                    tooltip.style("opacity", 0);
+                });
+
+            // Add X-axis
+            svg.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(x0))
+                .selectAll("text")
+                .attr("y", 0)
+                .attr("x", 9)
+                .attr("dy", ".35em")
+                .attr("transform", "rotate(45)")
+                .style("text-anchor", "start");
+
+            // Add Y-axis
+            svg.append("g")
+                .call(d3.axisLeft(y));
+
+            // Add X-axis label
+            svg.append("text")
+                .attr("x", width / 2)
+                .attr("y", height + margin.top + 40)
+                .style("text-anchor", "middle")
+                .text("Region");
+
+            // Add Y-axis label
+            svg.append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("x", 0 - (height / 2))
+                .attr("y", 0 - margin.left + 20)
+                .attr("dy", "1em")
+                .style("text-anchor", "middle")
+                .text("Values");
+
+        }).catch(function(error) {
+            console.log("Error loading the data: " + error);
+        });
+    </script>
+</body>
+</html>
