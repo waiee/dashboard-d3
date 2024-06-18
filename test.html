@@ -53,6 +53,9 @@
                 d.cpi = +d.cpi;
             });
 
+            // Log the data for debugging
+            console.log("Raw Data:", data);
+
             // Aggregate data by region
             const aggregatedData = d3.rollups(
                 data,
@@ -67,7 +70,7 @@
                 avg_cpi: values.avg_cpi
             }));
 
-            // Debug: Log the aggregated data
+            // Log the aggregated data for debugging
             console.log("Aggregated Data:", aggregatedData);
 
             const margin = { top: 20, right: 30, bottom: 60, left: 60 };
