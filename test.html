@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>D3.js Side-by-Side Bar Charts</title>
+    <title>D3.js Butterfly Chart</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -39,13 +39,13 @@
 </head>
 <body>
     <div class="chart-container">
-        <h2>Relationship between Total Affected and CPI by Region (Side-by-Side Bar Charts)</h2>
+        <h2>Butterfly Chart: Total Affected and Average CPI by Region</h2>
         <svg id="chart"></svg>
     </div>
 
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <script>
-        // D3.js code goes here
+        // Load data and create butterfly chart
         d3.csv("cleaned_data.csv").then(function(data) {
             // Convert numeric values from strings to numbers
             data.forEach(function(d) {
@@ -53,8 +53,23 @@
                 d.cpi = +d.cpi;
             });
 
-            // Extract unique regions
-            const regions = [...new Set(data.map(d => d.region))];
+            // Aggregate data by region
+            const aggregatedData = d3.rollups(
+                data,
+                v => ({
+                    total_affected: d3.sum(v, d => d.total_affected),
+                    avg_cpi: d3.mean(v, d => d.cpi)
+                }),
+                d => d.region
+            ).map(([region, values]) => ({
+                region,
+                total_affected: values.total_affected,
+                avg_cpi: values.avg_cpi
+            }));
+
+            // Debug: Log the aggregated data
+            console.log("Aggregated Data:", aggregatedData);
+
             const margin = { top: 20, right: 30, bottom: 60, left: 60 };
             const width = 800 - margin.left - margin.right;
             const height = 400 - margin.top - margin.bottom;
@@ -67,43 +82,35 @@
                 .attr("transform", `translate(${margin.left},${margin.top})`);
 
             // Define scales
-            const x0 = d3.scaleBand()
-                .domain(regions)
-                .rangeRound([0, width])
-                .paddingInner(0.1);
-
-            const x1 = d3.scaleBand()
-                .domain(['total_affected', 'cpi'])
-                .rangeRound([0, x0.bandwidth()])
-                .padding(0.05);
-
-            const y = d3.scaleLinear()
-                .domain([0, d3.max(data, d => Math.max(d.total_affected, d.cpi))])
+            const x = d3.scaleLinear()
+                .domain([0, d3.max(aggregatedData, d => Math.max(d.total_affected, d.avg_cpi))])
                 .nice()
-                .range([height, 0]);
+                .range([0, width / 2]);
+
+            const y = d3.scaleBand()
+                .domain(aggregatedData.map(d => d.region))
+                .range([0, height])
+                .padding(0.1);
 
             // Define tooltip
             const tooltip = d3.select("body")
                 .append("div")
                 .attr("class", "tooltip");
 
-            // Draw bars
+            // Draw bars for total affected
             svg.append("g")
-                .selectAll("g")
-                .data(data)
-                .join("g")
-                .attr("transform", d => `translate(${x0(d.region)},0)`)
-                .selectAll("rect")
-                .data(d => ['total_affected', 'cpi'].map(key => ({key, value: d[key]})))
+                .selectAll(".bar.total_affected")
+                .data(aggregatedData)
                 .join("rect")
-                .attr("x", d => x1(d.key))
-                .attr("y", d => y(d.value))
-                .attr("width", x1.bandwidth())
-                .attr("height", d => height - y(d.value))
-                .attr("fill", d => d.key === 'total_affected' ? "#1f77b4" : "#ff7f0e")
+                .attr("class", "bar total_affected")
+                .attr("x", d => width / 2 - x(d.total_affected))
+                .attr("y", d => y(d.region))
+                .attr("width", d => x(d.total_affected))
+                .attr("height", y.bandwidth())
+                .attr("fill", "#1f77b4")
                 .on("mouseover", (event, d) => {
                     tooltip.style("opacity", 1)
-                        .html(`<strong>${d.key}</strong><br>${d.value}`)
+                        .html(`<strong>Total Affected</strong><br>${d.total_affected}`)
                         .style("left", (event.pageX + 10) + "px")
                         .style("top", (event.pageY - 15) + "px");
                 })
@@ -111,27 +118,65 @@
                     tooltip.style("opacity", 0);
                 });
 
-            // Add X-axis
+            // Draw bars for average CPI
+            svg.append("g")
+                .selectAll(".bar.avg_cpi")
+                .data(aggregatedData)
+                .join("rect")
+                .attr("class", "bar avg_cpi")
+                .attr("x", width / 2)
+                .attr("y", d => y(d.region))
+                .attr("width", d => x(d.avg_cpi))
+                .attr("height", y.bandwidth())
+                .attr("fill", "#ff7f0e")
+                .on("mouseover", (event, d) => {
+                    tooltip.style("opacity", 1)
+                        .html(`<strong>Average CPI</strong><br>${d.avg_cpi.toFixed(2)}`)
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 15) + "px");
+                })
+                .on("mouseout", () => {
+                    tooltip.style("opacity", 0);
+                });
+
+            // Add X-axis for Total Affected
             svg.append("g")
                 .attr("transform", `translate(0,${height})`)
-                .call(d3.axisBottom(x0))
-                .selectAll("text")
-                .attr("y", 0)
-                .attr("x", 9)
-                .attr("dy", ".35em")
-                .attr("transform", "rotate(45)")
-                .style("text-anchor", "start");
+                .call(d3.axisBottom(x).ticks(5))
+                .call(g => g.selectAll(".domain").remove())
+                .call(g => g.selectAll("line").remove())
+                .call(g => g.selectAll("text")
+                    .attr("x", 6)
+                    .attr("dy", -4)
+                    .style("text-anchor", "start"));
+
+            // Add X-axis for Average CPI
+            svg.append("g")
+                .attr("transform", `translate(${width / 2},${height})`)
+                .call(d3.axisBottom(x).ticks(5))
+                .call(g => g.selectAll(".domain").remove())
+                .call(g => g.selectAll("line").remove())
+                .call(g => g.selectAll("text")
+                    .attr("x", 6)
+                    .attr("dy", -4)
+                    .style("text-anchor", "start"));
 
             // Add Y-axis
             svg.append("g")
                 .call(d3.axisLeft(y));
 
-            // Add X-axis label
+            // Add X-axis labels
             svg.append("text")
-                .attr("x", width / 2)
-                .attr("y", height + margin.top + 40)
+                .attr("x", width / 4)
+                .attr("y", height + margin.top + 20)
                 .style("text-anchor", "middle")
-                .text("Region");
+                .text("Total Affected");
+
+            svg.append("text")
+                .attr("x", 3 * width / 4)
+                .attr("y", height + margin.top + 20)
+                .style("text-anchor", "middle")
+                .text("Average CPI");
 
             // Add Y-axis label
             svg.append("text")
@@ -140,7 +185,7 @@
                 .attr("y", 0 - margin.left + 20)
                 .attr("dy", "1em")
                 .style("text-anchor", "middle")
-                .text("Values");
+                .text("Region");
 
         }).catch(function(error) {
             console.log("Error loading the data: " + error);
