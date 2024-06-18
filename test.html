@@ -10,7 +10,7 @@
             margin: 20px;
         }
         .chart-container {
-            width: 900px; /* Adjusted width for better layout */
+            width: 100%; /* Adjust as needed */
             margin: 20px auto;
         }
         .bar {
@@ -73,9 +73,9 @@
             // Log the aggregated data for debugging
             console.log("Aggregated Data:", aggregatedData);
 
-            const margin = { top: 20, right: 30, bottom: 60, left: 120 }; // Adjusted left margin for Y-axis label
-            const width = 800 - margin.left - margin.right; // Adjusted width
-            const height = 400 - margin.top - margin.bottom;
+            const margin = { top: 20, right: 30, bottom: 80, left: 140 }; // Adjusted bottom margin for X-axis labels
+            const width = 1200 - margin.left - margin.right; // Adjusted width
+            const height = 500 - margin.top - margin.bottom; // Increased height
 
             // Create SVG element
             const svg = d3.select("#chart")
@@ -127,9 +127,12 @@
                 .data(aggregatedData)
                 .join("rect")
                 .attr("class", "bar avg_cpi")
-                .attr("x", width / 2)
+                .attr("x", width / 2) // Ensure the starting point is correct
                 .attr("y", d => y(d.region))
-                .attr("width", d => x(d.avg_cpi))
+                .attr("width", d => {
+                    console.log("avg_cpi width:", d.avg_cpi, x(d.avg_cpi)); // Debugging statement
+                    return x(d.avg_cpi);
+                }) // Use x scale for width
                 .attr("height", y.bandwidth())
                 .attr("fill", "#ff7f0e")
                 .on("mouseover", (event, d) => {
@@ -171,13 +174,13 @@
             // Add X-axis labels
             svg.append("text")
                 .attr("x", width / 4)
-                .attr("y", height + margin.top + 20)
+                .attr("y", height + margin.top + 40)
                 .style("text-anchor", "middle")
                 .text("Total Affected");
 
             svg.append("text")
                 .attr("x", 3 * width / 4)
-                .attr("y", height + margin.top + 20)
+                .attr("y", height + margin.top + 40)
                 .style("text-anchor", "middle")
                 .text("Average CPI");
 
@@ -185,7 +188,7 @@
             svg.append("text")
                 .attr("transform", "rotate(-90)")
                 .attr("x", 0 - (height / 2))
-                .attr("y", 0 - margin.left + 40) // Adjusted to move further left
+                .attr("y", 0 - margin.left + 10) // Adjusted to move further left
                 .attr("dy", "1em")
                 .style("text-anchor", "middle")
                 .text("Region");
@@ -196,8 +199,3 @@
     </script>
 </body>
 </html>
-
-
-
-
-
