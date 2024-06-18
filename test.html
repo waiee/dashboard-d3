@@ -49,8 +49,8 @@
         d3.csv("cleaned_data.csv").then(function(data) {
             // Convert numeric values from strings to numbers
             data.forEach(function(d) {
-                d.total_affected = +d.total_affected;
-                d.cpi = +d.cpi;
+                d.total_affected = +d.total_affected; // Ensure numeric conversion
+                d.cpi = +d.cpi; // Ensure numeric conversion
             });
 
             // Log the data for debugging
