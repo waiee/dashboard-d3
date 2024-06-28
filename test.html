@@ -10,8 +10,12 @@
             margin: 20px;
         }
         .chart-container {
-            width: 100%; /* Adjust as needed */
-            margin: 20px auto;
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
         .bar {
             fill: steelblue;
@@ -35,164 +39,244 @@
             opacity: 0;
             transition: opacity 0.3s;
         }
+        h2 {
+            text-align: center;
+        }
+        .region-select {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
     </style>
 </head>
 <body>
     <div class="chart-container">
-        <h2 style="margin-left: 100px;">Butterfly Chart: Total Affected and Average CPI by Region</h2> <!-- Adjusted margin-left -->
+        <h2>Butterfly Chart: Total Affected and Average CPI by Region</h2>
+        <div class="region-select">
+            <label for="regionSelect">Select Region:</label>
+            <select id="regionSelect"></select>
+        </div>
         <svg id="chart"></svg>
     </div>
 
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <script>
-        // Load data and create butterfly chart
         d3.csv("cleaned_data.csv").then(function(data) {
-            // Convert numeric values from strings to numbers
             data.forEach(function(d) {
                 d["Total Affected"] = +d["Total Affected"];
                 d["CPI"] = +d["CPI"];
             });
 
-            // Log the data for debugging
-            console.log("Data:", data);
-
-            // Aggregate data by region
             const aggregatedData = d3.rollups(
                 data,
                 v => ({
                     total_affected: d3.sum(v, d => d["Total Affected"]),
-                    avg_cpi: d3.mean(v, d => d["CPI"])
+                    avg_cpi: d3.mean(v, d => d["CPI"]),
+                    countries: v.map(d => d.Country)
                 }),
                 d => d.Region
             ).map(([region, values]) => ({
                 region,
                 total_affected: values.total_affected,
-                avg_cpi: values.avg_cpi
+                avg_cpi: values.avg_cpi,
+                countries: values.countries
             }));
 
-            // Log the aggregated data for debugging
-            console.log("Aggregated Data:", aggregatedData);
+            // Sort aggregatedData by avg_cpi in descending order
+            aggregatedData.sort((a, b) => b.avg_cpi - a.avg_cpi);
 
-            const margin = { top: 20, right: 30, bottom: 80, left: 140 }; // Adjusted bottom margin for X-axis labels
-            const width = 1200 - margin.left - margin.right; // Adjusted width
-            const height = 500 - margin.top - margin.bottom; // Increased height
+            const margin = { top: 20, right: 30, bottom: 100, left: 100 }; // Increased bottom margin
+            const width = 1200 - margin.left - margin.right;
+            const height = 600 - margin.top - margin.bottom; // Increased total height
+            const gap = 200; // Gap between the two sets of bars
 
-            // Create SVG element
             const svg = d3.select("#chart")
                 .attr("width", width + margin.left + margin.right)
                 .attr("height", height + margin.top + margin.bottom)
                 .append("g")
-                .attr("transform", `translate(${margin.left},${margin.top})`);
+                .attr("transform", `translate(${margin.left - 60},${margin.top})`); // Shifted the chart to the left
 
-            // Define scales
-            const x = d3.scaleLinear()
-                .domain([0, d3.max(aggregatedData, d => Math.max(d.total_affected, d.avg_cpi))])
-                .nice()
-                .range([0, width / 2]);
+            const maxAffected = d3.max(aggregatedData, d => d.total_affected);
+            const maxCPI = d3.max(aggregatedData, d => d.avg_cpi);
+
+            const xAffected = d3.scaleLinear()
+                .domain([0, maxAffected * 1.2]) // Increased domain range for Total Affected
+                .range([(width - gap) / 2, 0]) // Reversed range to start from right
+
+            const xCPI = d3.scaleLinear()
+                .domain([0, maxCPI * 1.2]) // Increased domain range for Average CPI
+                .range([0, (width - gap) / 2]);
 
             const y = d3.scaleBand()
                 .domain(aggregatedData.map(d => d.region))
                 .range([0, height])
                 .padding(0.1);
 
-            // Define tooltip
             const tooltip = d3.select("body")
                 .append("div")
                 .attr("class", "tooltip");
 
-            // Draw bars for total affected
-            svg.append("g")
-                .selectAll(".bar.total_affected")
+            // Populate region select dropdown
+            const regionSelect = d3.select("#regionSelect");
+            regionSelect.selectAll("option")
                 .data(aggregatedData)
-                .join("rect")
-                .attr("class", "bar total_affected")
-                .attr("x", d => width / 2 - x(d.total_affected))
-                .attr("y", d => y(d.region))
-                .attr("width", d => x(d.total_affected))
-                .attr("height", y.bandwidth())
-                .attr("fill", "#1f77b4")
-                .on("mouseover", (event, d) => {
-                    tooltip.style("opacity", 1)
-                        .html(`<strong>Total Affected</strong><br>${d.total_affected}`)
-                        .style("left", (event.pageX + 10) + "px")
-                        .style("top", (event.pageY - 15) + "px");
-                })
-                .on("mouseout", () => {
-                    tooltip.style("opacity", 0);
-                });
+                .enter().append("option")
+                .attr("value", d => d.region)
+                .text(d => d.region);
 
-            // Draw bars for average CPI
-            svg.append("g")
-                .selectAll(".bar.avg_cpi")
-                .data(aggregatedData)
-                .join("rect")
-                .attr("class", "bar avg_cpi")
-                .attr("x", width / 2) // Ensure the starting point is correct
-                .attr("y", d => y(d.region))
-                .attr("width", d => {
-                    console.log("avg_cpi width:", d.avg_cpi, x(d.avg_cpi)); // Debugging statement
-                    return x(d.avg_cpi);
-                }) // Use x scale for width
-                .attr("height", y.bandwidth())
-                .attr("fill", "#ff7f0e")
-                .on("mouseover", (event, d) => {
-                    tooltip.style("opacity", 1)
-                        .html(`<strong>Average CPI</strong><br>${d.avg_cpi.toFixed(2)}`)
-                        .style("left", (event.pageX + 10) + "px")
-                        .style("top", (event.pageY - 15) + "px");
-                })
-                .on("mouseout", () => {
-                    tooltip.style("opacity", 0);
-                });
+            // Function to update chart based on selected region
+            function updateChart(selectedRegion) {
+                const selectedData = aggregatedData.find(d => d.region === selectedRegion);
 
-            // Add X-axis for Total Affected
+                // Update y scale domain with countries of selected region
+                y.domain(selectedData.countries);
+
+                // Update total affected bars
+                svg.selectAll(".bar.total_affected")
+                    .data(selectedData.countries, d => d)
+                    .join(
+                        enter => enter.append("rect")
+                            .attr("class", "bar total_affected")
+                            .attr("x", d => (width - gap) / 2 - xAffected(selectedData.total_affected))
+                            .attr("y", d => y(d))
+                            .attr("width", d => xAffected(selectedData.total_affected))
+                            .attr("height", y.bandwidth())
+                            .attr("fill", "#1f77b4"),
+                        update => update
+                            .attr("x", d => (width - gap) / 2 - xAffected(selectedData.total_affected))
+                            .attr("width", d => xAffected(selectedData.total_affected)),
+                        exit => exit.remove()
+                    )
+                    .on("mouseover", (event, d) => {
+                        tooltip.style("opacity", 1)
+                            .html(`<strong>Total Affected</strong><br>${selectedData.total_affected}`)
+                            .style("left", (event.pageX + 10) + "px")
+                            .style("top", (event.pageY - 15) + "px");
+                    })
+                    .on("mouseout", () => {
+                        tooltip.style("opacity", 0);
+                    });
+
+                // Update average CPI bars
+                svg.selectAll(".bar.avg_cpi")
+                    .data(selectedData.countries, d => d)
+                    .join(
+                        enter => enter.append("rect")
+                            .attr("class", "bar avg_cpi")
+                            .attr("x", (width + gap) / 2)
+                            .attr("y", d => y(d))
+                            .attr("width", d => xCPI(selectedData.avg_cpi))
+                            .attr("height", y.bandwidth())
+                            .attr("fill", "#ff7f0e"),
+                        update => update
+                            .attr("x", (width + gap) / 2)
+                            .attr("width", d => xCPI(selectedData.avg_cpi)),
+                        exit => exit.remove()
+                    )
+                    .on("mouseover", (event, d) => {
+                        tooltip.style("opacity", 1)
+                            .html(`<strong>Average CPI</strong><br>${selectedData.avg_cpi.toFixed(2)}`)
+                            .style("left", (event.pageX + 10) + "px")
+                            .style("top", (event.pageY - 15) + "px");
+                    })
+                    .on("mouseout", () => {
+                        tooltip.style("opacity", 0);
+                    });
+
+                // Update region labels
+                svg.selectAll(".region-label")
+                    .data(selectedData.countries, d => d)
+                    .join("text")
+                    .attr("class", "region-label")
+                    .attr("x", width / 2)
+                    .attr("y", d => y(d) + y.bandwidth() / 2)
+                    .attr("dy", "0.35em")
+                    .style("text-anchor", "middle")
+                    .style("fill", "black")
+                    .style("font-weight", "bold")
+                    .style("font-size", "12px")
+                    .text(d => d)
+                    .each(function(d) {
+                        const labelWidth = this.getBBox().width;
+                        const availableWidth = gap - 20; // Gap between bars minus a margin
+                        if (labelWidth > availableWidth) {
+                            d3.select(this).style("font-size", "10px");
+                        }
+                    });
+
+                // Update x-axis
+                svg.select(".x-axis-total-affected")
+                    .call(d3.axisBottom(xAffected).ticks(5));
+
+                svg.select(".x-axis-avg-cpi")
+                    .call(d3.axisBottom(xCPI).ticks(5));
+            }
+
+            // Initial chart display
+            updateChart(aggregatedData[0].region);
+
+            // Event listener for region select change
+            regionSelect.on("change", function() {
+                const selectedRegion = this.value;
+                updateChart(selectedRegion);
+            });
+
             svg.append("g")
+                .attr("class", "x-axis-total-affected")
                 .attr("transform", `translate(0,${height})`)
-                .call(d3.axisBottom(x).ticks(5))
+                .call(d3.axisBottom(xAffected).ticks(5))
+                .call(g => g.selectAll(".domain").remove())
+                .call(g => g.selectAll("line").remove())
+                .call(g => g.selectAll("text")
+                    .attr("x", -6) // Adjust label position
+                    .attr("dy", 12) // Move down 12 units
+                    .style("text-anchor", "end")); // Align to the end of tick
+
+            svg.append("g")
+                .attr("class", "x-axis-avg-cpi")
+                .attr("transform", `translate(${(width + gap) / 2},${height})`)
+                .call(d3.axisBottom(xCPI).ticks(5))
                 .call(g => g.selectAll(".domain").remove())
                 .call(g => g.selectAll("line").remove())
                 .call(g => g.selectAll("text")
                     .attr("x", 6)
-                    .attr("dy", -4)
+                    .attr("dy", 12) // Move down 12 units
                     .style("text-anchor", "start"));
 
-            // Add X-axis for Average CPI
-            svg.append("g")
-                .attr("transform", `translate(${width / 2},${height})`)
-                .call(d3.axisBottom(x).ticks(5))
-                .call(g => g.selectAll(".domain").remove())
-                .call(g => g.selectAll("line").remove())
-                .call(g => g.selectAll("text")
-                    .attr("x", 6)
-                    .attr("dy", -4)
-                    .style("text-anchor", "start"));
-
-            // Add Y-axis
-            svg.append("g")
-                .call(d3.axisLeft(y));
-
-            // Add X-axis labels
             svg.append("text")
-                .attr("x", width / 4)
-                .attr("y", height + margin.top + 40)
+                .attr("x", (width - gap) / 4)
+                .attr("y", height + margin.top + 60) // Adjusted y position for Total Affected
                 .style("text-anchor", "middle")
                 .text("Total Affected");
 
             svg.append("text")
-                .attr("x", 3 * width / 4)
-                .attr("y", height + margin.top + 40)
+                .attr("x", 3 * (width + gap) / 4)
+                .attr("y", height + margin.top + 60) // Adjusted y position for Average CPI
                 .style("text-anchor", "middle")
                 .text("Average CPI");
 
-            // Add Y-axis label
-            svg.append("text")
-                .attr("transform", "rotate(-90)")
-                .attr("x", 0 - (height / 2))
-                .attr("y", 0 - margin.left + 10) // Adjusted to move further left
-                .attr("dy", "1em")
+            // Adding region labels in the middle with a sufficient gap
+            svg.append("g")
+                .selectAll(".region-label")
+                .data(aggregatedData[0].countries)
+                .join("text")
+                .attr("class", "region-label")
+                .attr("x", width / 2)
+                .attr("y", d => y(d) + y.bandwidth() / 2)
+                .attr("dy", "0.35em")
                 .style("text-anchor", "middle")
-                .text("Region");
-
+                .style("fill", "black")
+                .style("font-weight", "bold")
+                .style("font-size", "12px")
+                .text(d => d)
+                .each(function(d) {
+                    const labelWidth = this.getBBox().width;
+                    const availableWidth = gap - 20; // Gap between bars minus a margin
+                    if (labelWidth > availableWidth) {
+                        d3.select(this).style("font-size", "10px");
+                    }
+                });
         }).catch(function(error) {
             console.log("Error loading the data: " + error);
         });
