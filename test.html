@@ -52,7 +52,7 @@
 </head>
 <body>
     <div class="chart-container">
-        <h2>Butterfly Chart: Total Affected and Total CPI by Country</h2>
+        <h2>Butterfly Chart: Total Affected and Average CPI by Region</h2>
         <div class="region-select">
             <label for="regionSelect">Select Region:</label>
             <select id="regionSelect"></select>
@@ -79,7 +79,8 @@
                 region: keys[0],
                 country: keys[1],
                 total_affected: values.total_affected,
-                total_cpi: values.total_cpi, // Total CPI per country
+                avg_cpi: values.avg_cpi,
+                countries: values.countries
             }));
 
             // Sort aggregatedData by total_cpi in descending order
@@ -151,31 +152,29 @@
                                 d3.select(this).attr("fill", "#1f77b4");
                             }),
                         update => update
-                            .attr("x", d => (width - gap) / 2 - xAffected(d.total_affected))
-                            .attr("width", d => xAffected(d.total_affected))
-                            .on("mouseover", function(event, d) {
-                                tooltip.style("opacity", 1)
-                                    .html(`<strong>Total Affected</strong><br>${d.total_affected}`)
-                                    .style("left", (event.pageX + 10) + "px")
-                                    .style("top", (event.pageY - 15) + "px");
-                                d3.select(this).attr("fill", "orange");
-                            })
-                            .on("mouseout", function() {
-                                tooltip.style("opacity", 0);
-                                d3.select(this).attr("fill", "#1f77b4");
-                            }),
+                            .attr("x", d => (width - gap) / 2 - xAffected(selectedData.total_affected))
+                            .attr("width", d => xAffected(selectedData.total_affected)),
                         exit => exit.remove()
-                    );
+                    )
+                    .on("mouseover", (event, d) => {
+                        tooltip.style("opacity", 1)
+                            .html(`<strong>Total Affected</strong><br>${selectedData.total_affected}`)
+                            .style("left", (event.pageX + 10) + "px")
+                            .style("top", (event.pageY - 15) + "px");
+                    })
+                    .on("mouseout", () => {
+                        tooltip.style("opacity", 0);
+                    });
 
-                // Update total CPI bars
-                svg.selectAll(".bar.total_cpi")
-                    .data(selectedData, d => d.country)
+                // Update average CPI bars
+                svg.selectAll(".bar.avg_cpi")
+                    .data(selectedData.countries, d => d)
                     .join(
                         enter => enter.append("rect")
                             .attr("class", "bar total_cpi")
                             .attr("x", (width + gap) / 2)
-                            .attr("y", d => y(d.country))
-                            .attr("width", d => xCPI(d.total_cpi))
+                            .attr("y", d => y(d))
+                            .attr("width", d => xCPI(selectedData.avg_cpi))
                             .attr("height", y.bandwidth())
                             .attr("fill", "#ff7f0e")
                             .on("mouseover", function(event, d) {
@@ -191,20 +190,18 @@
                             }),
                         update => update
                             .attr("x", (width + gap) / 2)
-                            .attr("width", d => xCPI(d.total_cpi))
-                            .on("mouseover", function(event, d) {
-                                tooltip.style("opacity", 1)
-                                    .html(`<strong>Total CPI</strong><br>${d.total_cpi.toFixed(2)}`)
-                                    .style("left", (event.pageX + 10) + "px")
-                                    .style("top", (event.pageY - 15) + "px");
-                                d3.select(this).attr("fill", "orange");
-                            })
-                            .on("mouseout", function() {
-                                tooltip.style("opacity", 0);
-                                d3.select(this).attr("fill", "#ff7f0e");
-                            }),
+                            .attr("width", d => xCPI(selectedData.avg_cpi)),
                         exit => exit.remove()
-                    );
+                    )
+                    .on("mouseover", (event, d) => {
+                        tooltip.style("opacity", 1)
+                            .html(`<strong>Average CPI</strong><br>${selectedData.avg_cpi.toFixed(2)}`)
+                            .style("left", (event.pageX + 10) + "px")
+                            .style("top", (event.pageY - 15) + "px");
+                    })
+                    .on("mouseout", () => {
+                        tooltip.style("opacity", 0);
+                    });
 
                 // Update country labels
                 svg.selectAll(".country-label")
@@ -255,7 +252,47 @@
             svg.append("g")
                 .attr("class", "x-axis-total-cpi")
                 .attr("transform", `translate(${(width + gap) / 2},${height})`)
-                .call(d3.axisBottom(xCPI).ticks(5));
+                .call(d3.axisBottom(xCPI).ticks(5))
+                .call(g => g.selectAll(".domain").remove())
+                .call(g => g.selectAll("line").remove())
+                .call(g => g.selectAll("text")
+                    .attr("x", 6)
+                    .attr("dy", 12) // Move down 12 units
+                    .style("text-anchor", "start"));
+
+            svg.append("text")
+                .attr("x", (width - gap) / 4)
+                .attr("y", height + margin.top + 60) // Adjusted y position for Total Affected
+                .style("text-anchor", "middle")
+                .text("Total Affected");
+
+            svg.append("text")
+                .attr("x", 3 * (width + gap) / 4)
+                .attr("y", height + margin.top + 60) // Adjusted y position for Average CPI
+                .style("text-anchor", "middle")
+                .text("Average CPI");
+
+            // Adding region labels in the middle with a sufficient gap
+            svg.append("g")
+                .selectAll(".region-label")
+                .data(aggregatedData[0].countries)
+                .join("text")
+                .attr("class", "region-label")
+                .attr("x", width / 2)
+                .attr("y", d => y(d) + y.bandwidth() / 2)
+                .attr("dy", "0.35em")
+                .style("text-anchor", "middle")
+                .style("fill", "black")
+                .style("font-weight", "bold")
+                .style("font-size", "12px")
+                .text(d => d)
+                .each(function(d) {
+                    const labelWidth = this.getBBox().width;
+                    const availableWidth = gap - 20; // Gap between bars minus a margin
+                    if (labelWidth > availableWidth) {
+                        d3.select(this).style("font-size", "10px");
+                    }
+                });
         }).catch(function(error) {
             console.log("Error loading the data: " + error);
         });
