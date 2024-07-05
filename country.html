@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>D3.js Butterfly Chart by Country</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #2a2a2a;
+            color: #fff;
+            margin: 20px;
+        }
+        .chart-container {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #333;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        .bar {
+            fill: steelblue;
+        }
+        .bar:hover {
+            fill: orange;
+        }
+        .axis text {
+            font-size: 12px;
+        }
+        .axis .domain {
+            display: none;
+        }
+        .tooltip {
+            position: absolute;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 8px;
+            border-radius: 5px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        h2 {
+            text-align: center;
+        }
+        .filters {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 1200px;
+            margin-bottom: 20px;
+        }
+        .filter-group {
+            display: flex;
+            align-items: center;
+        }
+        .filter-group label {
+            margin-right: 10px;
+        }
+        .filter-group input[type="range"] {
+            margin-right: 5px;
+        }
+        .region-select {
+            display: flex;
+            align-items: center;
+            margin-top: 10px;
+            margin-bottom: 10px;
+        }
+        .region-select button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 0 10px;
+            color: #fff;
+        }
+        .country-label {
+            text-anchor: middle;
+            fill: #fff;
+            font-weight: bold;
+            font-size: 12px;
+        }
+        .chart-title {
+            text-anchor: middle;
+            font-size: 16px;
+            fill: #fff;
+        }
+        .storypoints {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        .storypoints button {
+            padding: 10px 20px;
+            margin: 0 10px;
+            background-color: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            font-size: 16px;
+        }
+        .storypoints button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <h2>Butterfly Chart: Total Affected and Average CPI by Country</h2>
+
+    <div class="storypoints">
+        <button id="continent-button">Continent</button>
+        <button id="region-button">Region</button>
+        <button id="country-button">Country</button>
+    </div>
+
+    <div class="chart-container">
+        <div class="filters">
+            <div class="filter-group">
+                <label for="totalAffectedScale">Total Affected Scale:</label>
+                <input type="range" id="totalAffectedScale" name="totalAffectedScale" min="1000000" max="100000000" value="50000000" step="1000000">
+                <span id="totalAffectedScaleValue">50000000</span>
+            </div>
+            <div class="region-select">
+                <button id="prevRegion">◀</button>
+                <span id="currentRegion"></span>
+                <button id="nextRegion">▶</button>
+            </div>
+            <div class="filter-group">
+                <label for="averageCPIScale">Average CPI Scale:</label>
+                <input type="range" id="averageCPIScale" name="averageCPIScale" min="0.1" max="120" value="100" step="0.1">
+                <span id="averageCPIScaleValue">100</span>
+            </div>
+            <div class="filter-group">
+                <label for="disasterType">Disaster Type:</label>
+                <select id="disasterType" name="disasterType">
+                    <option value="all">All Disasters</option>
+                    <option value="earthquake">Earthquake</option>
+                    <option value="flood">Flood</option>
+                    <option value="hurricane">Hurricane</option>
+                    <!-- Add more disaster types as needed -->
+                </select>
+            </div>
+        </div>
+        <svg id="chart"></svg>
+    </div>
+
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script>
+        document.getElementById("continent-button").addEventListener("click", function() {
+            window.location.href = "continent.html";
+        });
+        
+        document.getElementById("region-button").addEventListener("click", function() {
+            window.location.href = "region.html";
+        });
+        
+        document.getElementById("country-button").addEventListener("click", function() {
+            window.location.href = "country.html";
+        });
+
+        d3.csv("cleaned_data.csv").then(function(data) {
+            data.forEach(function(d) {
+                d["Total Affected"] = +d["Total Affected"];
+                d["CPI"] = +d["CPI"];
+            });
+
+            const aggregatedData = d3.rollup(
+                data,
+                v => ({
+                    total_affected: d3.sum(v, d => d["Total Affected"]),
+                    avg_cpi: d3.mean(v, d => d["CPI"]),
+                }),
+                d => d.Country
+            );
+
+            const aggregatedDataArray = Array.from(aggregatedData, ([country, values]) => ({
+                country,
+                total_affected: values.total_affected,
+                avg_cpi: values.avg_cpi,
+                region: data.find(d => d.Country === country).Region,
+                disaster_type: data.find(d => d.Country === country).DisasterType // Assuming you have a 'DisasterType' column in your data
+            }));
+
+            aggregatedDataArray.sort((a, b) => b.avg_cpi - a.avg_cpi);
+
+            const margin = { top: 20, right: 30, bottom: 100, left: 100 };
+            const width = 1200 - margin.left - margin.right;
+            const height = 500 - margin.top - margin.bottom;
+            const gap = 300;
+
+            const svg = d3.select("#chart")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            let xAffected = d3.scaleLinear()
+                .domain([0, 50000000])
+                .range([(width - gap) / 2, 0]);
+
+            let xCPI = d3.scaleLinear()
+                .domain([0, 100])
+                .range([0, (width - gap) / 2]);
+
+            const y = d3.scaleBand()
+                .domain(aggregatedDataArray.map(d => d.country))
+                .range([0, height])
+                .padding(0.1);
+
+            const tooltip = d3.select("body")
+                .append("div")
+                .attr("class", "tooltip");
+
+            const regions = [...new Set(aggregatedDataArray.map(d => d.region))];
+            let currentRegionIndex = 0;
+
+            const currentRegionElement = document.getElementById("currentRegion");
+            currentRegionElement.textContent = regions[currentRegionIndex];
+
+            function updateChart(selectedRegion) {
+                const selectedDisaster = document.getElementById("disasterType").value;
+                let selectedData = aggregatedDataArray.filter(d => d.region === selectedRegion);
+                if (selectedDisaster !== "all") {
+                    selectedData = selectedData.filter(d => d.disaster_type === selectedDisaster);
+                }
+
+                y.domain(selectedData.map(d => d.country));
+
+                svg.selectAll(".bar.total_affected")
+                    .data(selectedData, d => d.country)
+                    .join(
+                        enter => enter.append("rect")
+                            .attr("class", "bar total_affected")
+                            .attr("x", d => xAffected(d.total_affected))
+                            .attr("y", d => y(d.country))
+                            .attr("width", d => (width - gap) / 2 - xAffected(d.total_affected))
+                            .attr("height", y.bandwidth())
+                            .attr("fill", "#1f77b4")
+                            .on("mouseover", function(event, d) {
+                                tooltip.style("opacity", 1)
+                                    .html(`<strong>Total Affected</strong><br>${d3.format(",")(d.total_affected)}`)
+                                    .style("left", (event.pageX + 10) + "px")
+                                    .style("top", (event.pageY - 15) + "px");
+                                d3.select(this)
+                                    .attr("fill", "orange")
+                                    .transition()
+                                    .duration(200)
+                                    .attr("width", d => (width - gap) / 2 - xAffected(d.total_affected) + 10)
+                                    .attr("height", y.bandwidth() + 5)
+                                    .attr("y", d => y(d.country) - 2.5);
+                            })
+                            .on("mouseout", function() {
+                                tooltip.style("opacity", 0);
+                                d3.select(this)
+                                    .attr("fill", "#1f77b4")
+                                    .transition()
+                                    .duration(200)
+                                    .attr("width", d => (width - gap) / 2 - xAffected(d.total_affected))
+                                    .attr("height", y.bandwidth())
+                                    .attr("y", d => y(d.country));
+                            }),
+                        update => update
+                            .attr("x", d => xAffected(d.total_affected))
+                            .attr("width", d => (width - gap) / 2 - xAffected(d.total_affected))
+                            .on("mouseover", function(event, d) {
+                                tooltip.style("opacity", 1)
+                                    .html(`<strong>Total Affected</strong><br>${d3.format(",")(d.total_affected)}`)
+                                    .style("left", (event.pageX + 10) + "px")
+                                    .style("top", (event.pageY - 15) + "px");
+                                d3.select(this)
+                                    .attr("fill", "orange")
+                                    .transition()
+                                    .duration(200)
+                                    .attr("width", d => (width - gap) / 2 - xAffected(d.total_affected) + 10)
+                                    .attr("height", y.bandwidth() + 5)
+                                    .attr("y", d => y(d.country) - 2.5);
+                            })
+                            .on("mouseout", function() {
+                                tooltip.style("opacity", 0);
+                                d3.select(this)
+                                    .attr("fill", "#1f77b4")
+                                    .transition()
+                                    .duration(200)
+                                    .attr("width", d => (width - gap) / 2 - xAffected(d.total_affected))
+                                    .attr("height", y.bandwidth())
+                                    .attr("y", d => y(d.country));
+                            }),
+                        exit => exit.remove()
+                    );
+
+                svg.selectAll(".bar.avg_cpi")
+                    .data(selectedData, d => d.country)
+                    .join(
+                        enter => enter.append("rect")
+                            .attr("class", "bar avg_cpi")
+                            .attr("x", (width + gap) / 2)
+                            .attr("y", d => y(d.country))
+                            .attr("width", d => xCPI(d.avg_cpi))
+                            .attr("height", y.bandwidth())
+                            .attr("fill", "#ff7f0e")
+                            .on("mouseover", function(event, d) {
+                                tooltip.style("opacity", 1)
+                                    .html(`<strong>Average CPI</strong><br>${d.avg_cpi.toFixed(2)}`)
+                                    .style("left", (event.pageX + 10) + "px")
+                                    .style("top", (event.pageY - 15) + "px");
+                                d3.select(this)
+                                    .attr("fill", "orange")
+                                    .transition()
+                                    .duration(200)
+                                    .attr("width", d => xCPI(d.avg_cpi) + 10)
+                                    .attr("height", y.bandwidth() + 5)
+                                    .attr("y", d => y(d.country) - 2.5);
+                            })
+                            .on("mouseout", function() {
+                                tooltip.style("opacity", 0);
+                                d3.select(this)
+                                    .attr("fill", "#ff7f0e")
+                                    .transition()
+                                    .duration(200)
+                                    .attr("width", d => xCPI(d.avg_cpi))
+                                    .attr("height", y.bandwidth())
+                                    .attr("y", d => y(d.country));
+                            }),
+                        update => update
+                            .attr("x", (width + gap) / 2)
+                            .attr("width", d => xCPI(d.avg_cpi))
+                            .on("mouseover", function(event, d) {
+                                tooltip.style("opacity", 1)
+                                    .html(`<strong>Average CPI</strong><br>${d.avg_cpi.toFixed(2)}`)
+                                    .style("left", (event.pageX + 10) + "px")
+                                    .style("top", (event.pageY - 15) + "px");
+                                d3.select(this)
+                                    .attr("fill", "orange")
+                                    .transition()
+                                    .duration(200)
+                                    .attr("width", d => xCPI(d.avg_cpi) + 10)
+                                    .attr("height", y.bandwidth() + 5)
+                                    .attr("y", d => y(d.country) - 2.5);
+                            })
+                            .on("mouseout", function() {
+                                tooltip.style("opacity", 0);
+                                d3.select(this)
+                                    .attr("fill", "#ff7f0e")
+                                    .transition()
+                                    .duration(200)
+                                    .attr("width", d => xCPI(d.avg_cpi))
+                                    .attr("height", y.bandwidth())
+                                    .attr("y", d => y(d.country));
+                            }),
+                        exit => exit.remove()
+                    );
+
+                svg.selectAll(".country-label")
+                    .data(selectedData, d => d.country)
+                    .join("text")
+                    .attr("class", "country-label")
+                    .attr("x", width / 2)
+                    .attr("y", d => y(d.country) + y.bandwidth() / 2)
+                    .attr("dy", "0.35em")
+                    .style("text-anchor", "middle")
+                    .style("fill", "#fff")  
+                    .style("font-weight", "bold")
+                    .style("font-size", "12px")
+                    .text(d => d.country)
+                    .each(function(d) {
+                        const labelWidth = this.getBBox().width;
+                        const availableWidth = gap - 20;
+                        if (labelWidth > availableWidth) {
+                            d3.select(this).style("font-size", "10px");
+                        }
+                    });
+
+                svg.select(".x-axis-total-affected")
+                    .call(d3.axisBottom(xAffected).ticks(5).tickFormat(d3.format(".2s")))
+                    .selectAll("text")
+                    .style("fill", "#fff");  
+
+                svg.select(".x-axis-avg-cpi")
+                    .call(d3.axisBottom(xCPI).ticks(5))
+                    .selectAll("text")
+                    .style("fill", "#fff");  
+
+                // Chart title for Total Affected
+                svg.append("text")
+                    .attr("class", "chart-title")
+                    .attr("x", (width - gap) / 4)
+                    .attr("y", height + margin.top + 60)
+                    .style("text-anchor", "middle")
+                    .style("font-size", "16px")
+                    .style("fill", "#fff")  
+                    .text("Total Affected");
+
+                // Chart title for Average CPI
+                svg.append("text")
+                    .attr("class", "chart-title")
+                    .attr("x", (width + gap) * 3 / 4)
+                    .attr("y", height + margin.top + 60)
+                    .style("text-anchor", "middle")
+                    .style("font-size", "16px")
+                    .style("fill", "#fff")  
+                    .text("Average CPI");
+            }
+
+            function updateRegionNavigation() {
+                currentRegionElement.textContent = regions[currentRegionIndex];
+                updateChart(regions[currentRegionIndex]);
+            }
+
+            document.getElementById("prevRegion").addEventListener("click", function() {
+                currentRegionIndex = (currentRegionIndex - 1 + regions.length) % regions.length;
+                updateRegionNavigation();
+            });
+
+            document.getElementById("nextRegion").addEventListener("click", function() {
+                currentRegionIndex = (currentRegionIndex + 1) % regions.length;
+                updateRegionNavigation();
+            });
+
+            const initialRegion = regions[currentRegionIndex];
+            updateChart(initialRegion);
+
+            document.getElementById("totalAffectedScale").addEventListener("input", function() {
+                const newValue = +this.value;
+                document.getElementById("totalAffectedScaleValue").textContent = newValue;
+                xAffected = d3.scaleLinear()
+                    .domain([0, newValue])
+                    .range([(width - gap) / 2, 0]);
+                updateChart(regions[currentRegionIndex]);
+            });
+
+            document.getElementById("averageCPIScale").addEventListener("input", function() {
+                const newValue = +this.value;
+                document.getElementById("averageCPIScaleValue").textContent = newValue;
+                xCPI = d3.scaleLinear()
+                    .domain([0, newValue])
+                    .range([0, (width - gap) / 2]);
+                updateChart(regions[currentRegionIndex]);
+            });
+
+            document.getElementById("disasterType").addEventListener("change", function() {
+                updateChart(regions[currentRegionIndex]);
+            });
+
+            svg.append("g")
+                .attr("class", "x-axis-total-affected")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(xAffected).ticks(5).tickFormat(d3.format(".2s")))
+                .selectAll("text")
+                .style("fill", "#fff");  
+
+            svg.append("g")
+                .attr("class", "x-axis-avg-cpi")
+                .attr("transform", `translate(${(width + gap) / 2},${height})`)
+                .call(d3.axisBottom(xCPI).ticks(5))
+                .selectAll("text")
+                .style("fill", "#fff");  
+        }).catch(function(error) {
+            console.log("Error loading the data: " + error);
+        });
+    </script>
+</body>
+</html>
